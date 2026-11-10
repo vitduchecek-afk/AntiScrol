@@ -116,7 +116,7 @@ class MainActivity : ComponentActivity(), WebController.Host {
                     settingsContent = {
                         SettingsScreen(
                             profilesEnabled = profilesEnabled,
-                            onProfilesChanged = { setProfilesEnabled(it) },
+                            onProfilesChanged = { changeProfilesEnabled(it) },
                             rulesInfo = rulesInfo(loadedRules),
                             appVersion = BuildConfig.VERSION_NAME,
                             onRefreshRules = { refreshRules(announce = true) },
@@ -156,7 +156,7 @@ class MainActivity : ComponentActivity(), WebController.Host {
 
     // ------------------------------------------------------------------ settings and rules
 
-    private fun setProfilesEnabled(enabled: Boolean) {
+    private fun changeProfilesEnabled(enabled: Boolean) {
         profilesEnabled = enabled
         controller.setProfilesEnabled(enabled)
         lifecycleScope.launch { settingsStore.setProfilesEnabled(enabled) }
