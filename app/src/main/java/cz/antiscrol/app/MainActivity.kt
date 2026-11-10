@@ -113,6 +113,7 @@ class MainActivity : ComponentActivity(), WebController.Host {
                     snackbarHostState = snackbarHostState,
                     settingsVisible = settingsVisible,
                     onOpenSettings = { settingsVisible = true },
+                    onLeaveSettings = { settingsVisible = false },
                     settingsContent = {
                         SettingsScreen(
                             profilesEnabled = profilesEnabled,
@@ -133,6 +134,22 @@ class MainActivity : ComponentActivity(), WebController.Host {
 
         controller.start()
         refreshRules(announce = false)
+        handleTestIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleTestIntent(intent)
+    }
+
+    /**
+     * Debug builds only: lets the emulator smoke test (tools/smoke-test.sh) drive the page.
+     * The release APK ignores these extras.
+     */
+    private fun handleTestIntent(intent: Intent?) {
+        if (!BuildConfig.DEBUG) return
+        val command = intent?.getStringExtra("antiscrol.test") ?: return
+        controller.runTestCommand(command)
     }
 
     override fun onResume() {

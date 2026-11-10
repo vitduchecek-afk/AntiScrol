@@ -68,6 +68,7 @@ fun MainScreen(
     snackbarHostState: SnackbarHostState,
     settingsVisible: Boolean,
     onOpenSettings: () -> Unit,
+    onLeaveSettings: () -> Unit,
     settingsContent: @Composable () -> Unit,
 ) {
     Scaffold(
@@ -76,19 +77,28 @@ fun MainScreen(
             NavigationBar {
                 NavigationBarItem(
                     selected = !settingsVisible && controller.section == Section.STORIES,
-                    onClick = { controller.openStories() },
+                    onClick = {
+                        onLeaveSettings()
+                        controller.openStories()
+                    },
                     icon = { Icon(Icons.Filled.Home, contentDescription = null) },
                     label = { Text("Stories") },
                 )
                 NavigationBarItem(
                     selected = !settingsVisible && controller.section == Section.MESSAGES,
-                    onClick = { controller.openMessages() },
+                    onClick = {
+                        onLeaveSettings()
+                        controller.openMessages()
+                    },
                     icon = { Icon(Icons.Filled.Email, contentDescription = null) },
                     label = { Text("Zprávy") },
                 )
                 NavigationBarItem(
                     selected = !settingsVisible && controller.section == Section.ADD_STORY,
-                    onClick = { controller.addStory() },
+                    onClick = {
+                        onLeaveSettings()
+                        controller.addStory()
+                    },
                     icon = { Icon(Icons.Filled.AddCircle, contentDescription = null) },
                     label = { Text("+ Story") },
                 )

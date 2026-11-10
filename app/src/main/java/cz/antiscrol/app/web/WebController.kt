@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import cz.antiscrol.app.BuildConfig
 import cz.antiscrol.core.Category
 import cz.antiscrol.core.Decision
 import cz.antiscrol.core.NavGuard
@@ -91,10 +92,12 @@ class WebController(
         isLoggedIn = ::isLoggedIn,
         listener = object : NavGuard.Listener {
             override fun onAllowed(url: String, decision: Decision.Allow) {
+                debugLog("allowed ${decision.category}")
                 mainHandler.post { section = sectionOf(decision.category) }
             }
 
             override fun onBlockedAttempt(url: String) {
+                debugLog("blocked attempt (in-page navigation refused)")
                 mainHandler.post {
                     blockedVisible = true
                     // The page asked for a blocked route and was refused, so its own state may be
@@ -104,6 +107,7 @@ class WebController(
             }
 
             override fun onBlockedCommitted(url: String) {
+                debugLog("blocked committed (leaving the page)")
                 mainHandler.post {
                     blockedVisible = true
                     leaveBlockedPage()
@@ -210,7 +214,28 @@ class WebController(
         webView.destroy()
     }
 
+    /** Debug builds only, see MainActivity.handleTestIntent. */
+    fun runTestCommand(command: String) {
+        if (!BuildConfig.DEBUG) return
+        val argument = command.substringAfter(':', "")
+        val quoted = "'" + argument.replace("\\", "").replace("'", "") + "'"
+        when (command.substringBefore(':')) {
+            "load" -> webView.loadUrl(argument)
+            "push" -> webView.evaluateJavascript("history.pushState(null,'',$quoted)", null)
+            "replace" -> webView.evaluateJavascript("history.replaceState(null,'',$quoted)", null)
+            "assign" -> webView.evaluateJavascript("location.href=$quoted", null)
+            "state" -> webView.evaluateJavascript(
+                "AntiScrolBridge.report('state',location.pathname+' '+JSON.stringify(window.__antiscrol?window.__antiscrol.state():null))",
+                null,
+            )
+        }
+    }
+
     // ------------------------------------------------------------------ internals
+
+    private fun debugLog(message: String) {
+        if (BuildConfig.DEBUG) android.util.Log.d("AntiScrol", message)
+    }
 
     private fun sectionOf(category: Category): Section = when (category) {
         Category.DIRECT, Category.CONTENT, Category.REELS_VIEWER -> Section.MESSAGES
@@ -332,6 +357,7 @@ class WebController(
             return when (guard.check(url)) {
                 is Decision.Allow -> false
                 is Decision.Block -> {
+                    debugLog("blocked load (page load cancelled)")
                     blockedVisible = true
                     true
                 }
