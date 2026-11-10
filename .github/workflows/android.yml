@@ -6,6 +6,8 @@ on:
       - claude/pensive-mccarthy-f2i4hv
     tags:
       - 'v*'
+    paths-ignore:
+      - '**.md'
   workflow_dispatch:
     inputs:
       release_tag:
@@ -24,6 +26,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
@@ -155,3 +159,23 @@ jobs:
           path: smoke-out
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Attach screenshots to the release
+        if: always() && needs.build.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          cd smoke-out || exit 0
+          attach() { # attach <screenshot suffix> <asset name>
+            local file
+            file=$(ls *-"$1".png 2>/dev/null | head -1) || true
+            if [ -n "$file" ]; then
+              cp "$file" "$2"
+              gh release upload "$TAG" "$2" --clobber --repo "$GITHUB_REPOSITORY"
+            fi
+          }
+          attach release-start emulator-1-start.png
+          attach messages-tab emulator-2-login.png
+          attach settings emulator-3-settings.png
+          attach blocked-push emulator-4-blocked.png

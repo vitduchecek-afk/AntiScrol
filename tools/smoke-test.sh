@@ -167,16 +167,16 @@ expect_log "blocked load"
 tap_text "Zpět na Stories"; sleep 8; dump_ui
 expect_not_on_screen "Tohle je zablokované"
 
-note "part 2: blocked page loaded behind the filters' back"
+note "part 2: navigation that goes around the page script (backstop in the app)"
 adb logcat -c
-test_command "load:https://www.instagram.com/antiscrol-smoke/not-allowed/"; sleep 12; dump_ui; screenshot blocked-committed
+test_command "rawpush:/explore/"; sleep 8; dump_ui; screenshot blocked-backstop
 expect_on_screen "Tohle je zablokované"
 expect_log "blocked committed"
 tap_text "Zpět na Stories"; sleep 10; dump_ui
 expect_not_on_screen "Tohle je zablokované"
 test_command "state"; sleep 3
 echo "  page script state:"; app_log | grep "page: state" | tail -1 | sed 's/^/      | /'
-if app_log | grep "page: state" | tail -1 | grep -q "antiscrol-smoke"; then bad "still on the blocked page"; else ok "left the blocked page"; fi
+if app_log | grep "page: state" | tail -1 | grep -q "explore"; then bad "still on /explore/"; else ok "left /explore/"; fi
 
 note "part 2: back button never returns to a blocked page"
 for _ in 1 2 3 4; do
@@ -184,7 +184,7 @@ for _ in 1 2 3 4; do
   [[ -z "$(adb shell dumpsys activity activities | grep -E 'ResumedActivity|topResumedActivity' | grep "$PKG")" ]] && break
   test_command "state"; sleep 2
   where=$(app_log | grep "page: state" | tail -1)
-  if echo "$where" | grep -qE "explore|reels|antiscrol-smoke|SMOKETEST"; then bad "back landed on a blocked page: $where"; fi
+  if echo "$where" | grep -qE "explore|reels|SMOKETEST"; then bad "back landed on a blocked page: $where"; fi
 done
 ok "walked the history back without landing on a blocked page"
 

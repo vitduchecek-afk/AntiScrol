@@ -224,6 +224,14 @@ class WebController(
             "push" -> webView.evaluateJavascript("history.pushState(null,'',$quoted)", null)
             "replace" -> webView.evaluateJavascript("history.replaceState(null,'',$quoted)", null)
             "assign" -> webView.evaluateJavascript("location.href=$quoted", null)
+            // Uses an untouched pushState taken from a fresh iframe, i.e. it goes around the
+            // page script's wrapper. Only doUpdateVisitedHistory can catch this one.
+            "rawpush" -> webView.evaluateJavascript(
+                "(function(){var f=document.createElement('iframe');f.style.display='none';" +
+                    "document.documentElement.appendChild(f);" +
+                    "f.contentWindow.History.prototype.pushState.call(history,null,'',$quoted);})()",
+                null,
+            )
             "state" -> webView.evaluateJavascript(
                 "AntiScrolBridge.report('state',location.pathname+' '+JSON.stringify(window.__antiscrol?window.__antiscrol.state():null))",
                 null,
