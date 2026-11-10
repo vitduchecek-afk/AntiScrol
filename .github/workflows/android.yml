@@ -35,6 +35,10 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # The runner image already has the SDK; only accept licences and export paths.
+          # Gradle downloads the platform and build-tools it needs.
+          packages: ''
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
