@@ -17,6 +17,7 @@ OUT=smoke-out
 mkdir -p "$OUT"
 failures=0
 shot=0
+system_dialogs=0
 
 ok()   { echo "  ok   $*"; }
 bad()  { echo "  FAIL $*"; failures=$((failures + 1)); }
@@ -30,7 +31,7 @@ screenshot() {
 # Writes "text<TAB>bounds" for every labelled node on screen to $OUT/ui.txt.
 dump_ui() {
   : > "$OUT/ui.txt"
-  for _ in 1 2 3 4 5 6; do
+  for _ in 1 2 3 4 5 6 7 8; do
     if adb shell uiautomator dump /sdcard/ui.xml 2>&1 | grep -q "dumped to"; then
       adb exec-out cat /sdcard/ui.xml > "$OUT/ui.xml"
       python3 - "$OUT/ui.xml" > "$OUT/ui.txt" <<'PY'
@@ -41,6 +42,19 @@ for node in ET.parse(sys.argv[1]).iter('node'):
     if label:
         print(label[:160] + '\t' + node.get('bounds', ''))
 PY
+      # CI emulators are slow and sometimes show "<system app> isn't responding" over
+      # everything. That is not the app under test: dismiss it and look again.
+      if grep -F "isn't responding" "$OUT/ui.txt" | grep -q "AntiScrol"; then
+        bad "the app itself stopped responding"
+        return 0
+      fi
+      if grep -qF "isn't responding" "$OUT/ui.txt"; then
+        echo "  (dismissing a system dialog: $(grep -F "isn't responding" "$OUT/ui.txt" | cut -f1 | head -1))"
+        system_dialogs=$((system_dialogs + 1))
+        tap_text_quiet "Wait"
+        sleep 3
+        continue
+      fi
       return 0
     fi
     sleep 2
@@ -49,20 +63,22 @@ PY
   return 1
 }
 
+tap_text_quiet() {
+  local line bounds
+  line=$(grep -F -m1 "$1"$'\t' "$OUT/ui.txt") || return 1
+  bounds=${line##*$'\t'}
+  if [[ $bounds =~ \[([0-9]+),([0-9]+)\]\[([0-9]+),([0-9]+)\] ]]; then
+    adb shell input tap $(( (BASH_REMATCH[1] + BASH_REMATCH[3]) / 2 )) $(( (BASH_REMATCH[2] + BASH_REMATCH[4]) / 2 ))
+  fi
+}
+
 show_ui() { cut -f1 "$OUT/ui.txt" | head -40 | sed 's/^/      | /'; }
 on_screen() { grep -qF "$1" "$OUT/ui.txt"; }
 
 expect_on_screen()     { if on_screen "$1"; then ok "screen shows \"$1\""; else bad "screen should show \"$1\""; fi; }
 expect_not_on_screen() { if on_screen "$1"; then bad "screen should not show \"$1\""; else ok "screen does not show \"$1\""; fi; }
 
-tap_text() {
-  local line bounds
-  line=$(grep -F -m1 "$1"$'\t' "$OUT/ui.txt") || { bad "nothing to tap for \"$1\""; return 1; }
-  bounds=${line##*$'\t'}
-  if [[ $bounds =~ \[([0-9]+),([0-9]+)\]\[([0-9]+),([0-9]+)\] ]]; then
-    adb shell input tap $(( (BASH_REMATCH[1] + BASH_REMATCH[3]) / 2 )) $(( (BASH_REMATCH[2] + BASH_REMATCH[4]) / 2 ))
-  fi
-}
+tap_text() { tap_text_quiet "$1" || { bad "nothing to tap for \"$1\""; return 1; }; }
 
 expect_alive() {
   if [[ -n "$(adb shell pidof $PKG | tr -d '\r')" ]]; then ok "app is running ($1)"; else bad "app is not running ($1)"; fi
@@ -83,6 +99,7 @@ expect_log() { if app_log | grep -qF "$1"; then ok "log has \"$1\""; else bad "l
 test_command() { adb shell am start -n "$ACTIVITY" --es antiscrol.test "$1" > /dev/null; }
 
 note "device"
+sleep 20   # let the freshly booted launcher settle
 adb shell getprop ro.build.version.release | sed 's/^/  Android /'
 adb shell dumpsys webviewupdate | grep -i "current webview package" | sed 's/^ */  /'
 
@@ -169,14 +186,22 @@ expect_not_on_screen "Tohle je zablokované"
 
 note "part 2: navigation that goes around the page script (backstop in the app)"
 adb logcat -c
-test_command "rawpush:/explore/"; sleep 8; dump_ui; screenshot blocked-backstop
-expect_on_screen "Tohle je zablokované"
+test_command "rawpush:/explore/"; sleep 8
 expect_log "blocked committed"
+test_command "state"; sleep 3
+echo "  page script state, before anything is tapped:"; app_log | grep "page: state" | tail -1 | sed 's/^/      | /'
+if app_log | grep "page: state" | tail -1 | grep -q "explore"; then
+  bad "the app did not leave /explore/ on its own"
+else
+  ok "the app left /explore/ on its own"
+fi
+echo "  app log:"; app_log | grep -v "page: state" | tail -25 | sed 's/^/      | /'
+dump_ui; screenshot blocked-backstop
+expect_on_screen "Tohle je zablokované"
 tap_text "Zpět na Stories"; sleep 10; dump_ui
 expect_not_on_screen "Tohle je zablokované"
 test_command "state"; sleep 3
-echo "  page script state:"; app_log | grep "page: state" | tail -1 | sed 's/^/      | /'
-if app_log | grep "page: state" | tail -1 | grep -q "explore"; then bad "still on /explore/"; else ok "left /explore/"; fi
+if app_log | grep "page: state" | tail -1 | grep -q "explore"; then bad "still on /explore/"; else ok "not on /explore/ afterwards"; fi
 
 note "part 2: back button never returns to a blocked page"
 for _ in 1 2 3 4; do
@@ -201,5 +226,6 @@ note "app log (debug build)"
 app_log | tail -40 | sed 's/^/  /'
 
 echo
+echo "system dialogs dismissed along the way: $system_dialogs"
 if [[ $failures -eq 0 ]]; then echo "SMOKE TEST PASSED"; else echo "SMOKE TEST FAILED: $failures check(s)"; fi
 exit $(( failures > 0 ? 1 : 0 ))

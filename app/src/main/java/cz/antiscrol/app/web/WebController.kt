@@ -36,6 +36,8 @@ import cz.antiscrol.core.UserAgents
 
 enum class Section { STORIES, MESSAGES, ADD_STORY }
 
+private const val LEAVE_CHECK_DELAY_MS = 1500L
+
 /**
  * Owns the WebView and enforces the URL policy on it.
  *
@@ -273,9 +275,14 @@ class WebController(
     private fun goBackToAllowed(): Boolean {
         val history = webView.copyBackForwardList()
         val current = history.currentIndex
+        if (BuildConfig.DEBUG) {
+            val entries = (0 until history.size).joinToString { pathOf(history.getItemAtIndex(it)?.url) }
+            debugLog("history: current=$current entries=[$entries]")
+        }
         for (index in current - 1 downTo 0) {
             val url = history.getItemAtIndex(index)?.url ?: continue
             if (guard.check(url) is Decision.Allow) {
+                debugLog("going back ${current - index} step(s) to ${pathOf(url)}")
                 webView.goBackOrForward(index - current)
                 return true
             }
@@ -284,7 +291,25 @@ class WebController(
     }
 
     private fun leaveBlockedPage() {
-        if (!goBackToAllowed()) webView.loadUrl(guard.policy.homeUrl)
+        if (!goBackToAllowed()) {
+            debugLog("no allowed page to go back to, loading home")
+            webView.loadUrl(guard.policy.homeUrl)
+        }
+        // Do not trust that the step back worked: check where the WebView really is.
+        mainHandler.postDelayed({ ensureNotOnBlockedPage() }, LEAVE_CHECK_DELAY_MS)
+    }
+
+    private fun ensureNotOnBlockedPage() {
+        val url = webView.url ?: return
+        if (guard.check(url) is Decision.Allow) return
+        debugLog("still on ${pathOf(url)}, loading home")
+        webView.loadUrl(guard.policy.homeUrl)
+    }
+
+    private fun pathOf(url: String?): String = try {
+        Uri.parse(url.orEmpty()).path ?: "?"
+    } catch (e: Exception) {
+        "?"
     }
 
     private fun triggerAddStory() {
@@ -344,7 +369,11 @@ class WebController(
         fun check(url: String?): String = guard.encode(guard.check(url.orEmpty()))
 
         @JavascriptInterface
-        fun commit(url: String?): String = guard.encode(guard.commit(url.orEmpty()))
+        fun commit(url: String?): String {
+            val verdict = guard.encode(guard.commit(url.orEmpty()))
+            debugLog("page is at ${pathOf(url)} -> $verdict")
+            return verdict
+        }
 
         @JavascriptInterface
         fun blocked(url: String?) {
@@ -394,6 +423,7 @@ class WebController(
 
         override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
             // Also called for in-page navigation, independently of the injected script.
+            debugLog("webview is at ${pathOf(url)} (reload=$isReload)")
             if (url != null) guard.commit(url)
         }
     }
