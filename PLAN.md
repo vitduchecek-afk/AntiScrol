@@ -1,6 +1,7 @@
 # AntiScrol – plán aplikace proti scrollování na Instagramu (Android)
 
-> Stav: **jen plán / studie proveditelnosti**. Žádný kód, žádné poplatky, žádný backend.
+> Stav: **MVP (fáze 0 + 1, varianta A) je naprogramované** – viz [Stav implementace](#8-stav-implementace) na konci.
+> Chování přímo na Instagramu zatím nikdo neověřil s přihlášeným účtem. Žádné poplatky, žádný backend.
 
 ## 1. Cíl
 
@@ -141,3 +142,73 @@ Minimální appka = jedno WebView s instagram.com. Ověřit a zapsat výsledky:
 - Oficiální API to neumí a neoficiální API ohrožuje účty uživatelů → nepoužívat.
 - Android má navíc výhodu oproti iOS: **Accessibility Service** dokáže hlídat i oficiální aplikaci Instagram.
 - Prvním krokem by měl být **dvoutýdenní prototyp (fáze 0)**, který odpoví na 7 otázek výše. Teprve pak má smysl stavět celé MVP.
+
+## 8. Stav implementace
+
+Ke stažení: <https://github.com/vitduchecek-afk/AntiScrol/releases/latest/download/AntiScrol.apk>
+
+### Co je hotové
+
+| Část plánu | Stav | Kde |
+|---|---|---|
+| Spodní navigace Stories / Zprávy / + Story (+ Nastavení) | hotovo | `app/…/ui/Screens.kt` |
+| WebView s instagram.com, přihlášení na stránce, session v cookies | hotovo | `app/…/web/WebController.kt` |
+| Filtr URL (tabulka 3.1) jako čistá Kotlin třída | hotovo, 27 unit testů | `core/…/UrlPolicy.kt`, `NavGuard.kt` |
+| Hlídání navigace uvnitř stránky (`pushState`/`replaceState`) | hotovo | `app/src/main/assets/antiscrol.js` |
+| Skrytí feedu, zámek scrollu, bezpečný režim | hotovo | `antiscrol.js` + `docs/rules.json` |
+| Reel/příspěvek jen ze zpráv, bez přechodu na další | hotovo | `UrlPolicy.kt`, `antiscrol.js` |
+| Obrazovka „Tohle je zablokované 🙂“ | hotovo | `Screens.kt` |
+| Výběr souboru + fotoaparát pro story | hotovo | `MainActivity.kt` |
+| Pravidla v `rules.json`, přibalená + stahovaná z GitHub Pages | hotovo (Pages je potřeba zapnout) | `docs/rules.json`, `RulesRepository.kt` |
+| Přepínač profilů v nastavení (DataStore) | hotovo | `SettingsStore.kt` |
+| Sestavení a vydání APK přes GitHub Actions | hotovo | `.github/workflows/android.yml` |
+
+### Jak to drží pohromadě
+
+Blokované stránky hlídají tři na sobě nezávislé vrstvy:
+
+1. `shouldOverrideUrlLoading` – klasické načtení stránky a přesměrování.
+2. Vložený skript – navigace uvnitř stránky; aplikace je dotázána **dřív**, než se URL změní,
+   takže blokovaná stránka se vůbec nedostane do historie (tlačítko zpět na ní nemůže skončit).
+3. `doUpdateVisitedHistory` – cokoliv, co by přesto prošlo, aplikace zjistí a vrátí se zpět.
+
+O každé URL rozhoduje jen Kotlin (`UrlPolicy`); skript rozhodnutí pouze provádí.
+`rules.json` obsahuje jen data (vzory URL, CSS, selektory), nikdy spustitelný kód.
+
+Feed na úvodní stránce je schovaný dvakrát: pravidlem CSS a neprůhledným překrytím od spodního
+okraje lišty stories dolů. Když se lišta stories nenajde nebo CSS přestane fungovat, překrytí zůstává
+(bezpečný režim).
+
+### Odchylky od zadání
+
+- **Oprávnění k fotkám (`READ_MEDIA_IMAGES/VIDEO`) aplikace nežádá.** Používá systémový výběr
+  souborů, který předá jen vybrané soubory a žádné oprávnění nepotřebuje. Žádá jen o fotoaparát
+  (a o mikrofon, když si ho stránka vyžádá kvůli hlasové zprávě).
+- **Navigace má čtvrtou položku Nastavení**, aby byl přepínač profilů dohledatelný.
+- **„+ Story“** přejde na lištu stories a pokusí se klepnout na vlastní kroužek „Váš příběh“.
+  Prohlížeč ale výběr souboru bez skutečného dotyku na stránku otevřít nemusí, proto aplikace
+  zároveň ukáže nápovědu, kam klepnout.
+- **Se zapnutými profily** jde otevřít i příspěvek z mřížky profilu (ne jen ze zpráv).
+
+### Co je ověřené a co ne
+
+Ověřeno:
+- unit testy `core` (všechny řádky tabulky 3.1, triky s URL, neplatná pravidla),
+- `tools/inject-test.js` – vložený skript v Chromiu na napodobenině stránky (45 kontrol),
+- sestavení a podpis APK v GitHub Actions.
+
+**Neověřeno – fáze 0 z bodu 5 stále platí a musí ji projít člověk s účtem:**
+1. přihlášení a 2FA ve WebView,
+2. že se na skutečném webu najde lišta stories a feed zmizí (selektory v `rules.json` jsou odhad),
+3. zprávy včetně posílání fotek a hlasovek,
+4. otevření reelu ze zpráv a zákaz přechodu na další,
+5. nahrání story,
+6. jestli Instagram nepoužívá další adresy, které teď končí na obrazovce „zablokováno“,
+7. jestli Meta přihlášení z WebView po čase neomezí.
+
+### Zapnutí vzdálených pravidel
+
+V nastavení repozitáře: *Settings → Pages → Deploy from a branch* → větev
+`claude/pensive-mccarthy-f2i4hv`, složka `/docs`. Aplikace pak při startu zkusí
+`https://vitduchecek-afk.github.io/AntiScrol/rules.json` a použije ho, pokud má vyšší `version`
+než přibalená pravidla. Bez toho aplikace funguje s přibalenými.
