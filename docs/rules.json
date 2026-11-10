@@ -1,0 +1,101 @@
+{
+  "schema": 1,
+  "version": 1,
+  "policy": {
+    "homeUrl": "https://www.instagram.com/",
+    "directUrl": "https://www.instagram.com/direct/inbox/",
+    "appHosts": ["www.instagram.com", "instagram.com"],
+    "authHosts": [
+      { "host": "accountscenter.instagram.com", "patterns": ["^/.*$"] },
+      {
+        "host": "www.facebook.com",
+        "patterns": [
+          "^/login(?:\\.php|/.*)?$",
+          "^/dialog/.*$",
+          "^/v[0-9.]+/dialog/.*$",
+          "^/checkpoint(?:/.*)?$",
+          "^/two_step_verification(?:/.*)?$",
+          "^/oidc/.*$",
+          "^/oauth/.*$",
+          "^/privacy/consent(?:/.*)?$",
+          "^/instagram/login_sync(?:/.*)?$"
+        ]
+      },
+      {
+        "host": "m.facebook.com",
+        "patterns": [
+          "^/login(?:\\.php|/.*)?$",
+          "^/dialog/.*$",
+          "^/v[0-9.]+/dialog/.*$",
+          "^/checkpoint(?:/.*)?$",
+          "^/two_step_verification(?:/.*)?$",
+          "^/oidc/.*$",
+          "^/oauth/.*$",
+          "^/privacy/consent(?:/.*)?$"
+        ]
+      }
+    ],
+    "routes": [
+      {
+        "category": "AUTH",
+        "patterns": [
+          "^/accounts(?:/.*)?$",
+          "^/challenge(?:/.*)?$",
+          "^/auth_platform(?:/.*)?$",
+          "^/terms/(?:accept|unblock)(?:/.*)?$",
+          "^/privacy/checks(?:/.*)?$",
+          "^/consent(?:/.*)?$",
+          "^/fxcal(?:/.*)?$"
+        ]
+      },
+      { "category": "HOME", "patterns": ["^/$"] },
+      { "category": "STORIES", "patterns": ["^/stories/.+$"] },
+      { "category": "DIRECT", "patterns": ["^/direct(?:/.*)?$"] },
+      { "category": "CREATE", "patterns": ["^/create(?:/.*)?$"] },
+      {
+        "category": "CONTENT",
+        "patterns": [
+          "^/(?:[A-Za-z0-9._]{1,30}/)?(?:p|reel|tv)/([A-Za-z0-9_-]+)(?:/(?:comments|liked_by|c/[0-9]+))?/?$"
+        ]
+      },
+      { "category": "BLOCKED", "patterns": ["^/reels/?$", "^/explore(?:/.*)?$"] },
+      { "category": "REELS_VIEWER", "patterns": ["^/reels/([A-Za-z0-9_-]+)/?$"] },
+      { "category": "PROFILE", "patterns": ["^/([A-Za-z0-9._]{1,30})/?$"] }
+    ],
+    "reservedSegments": [
+      "p", "reel", "reels", "tv", "explore", "direct", "stories", "accounts", "challenge",
+      "create", "auth_platform", "about", "legal", "privacy", "terms", "consent", "fxcal",
+      "api", "graphql", "ajax", "web", "static", "data", "logging", "developer", "developers",
+      "directory", "emails", "press", "download", "session", "oauth", "notifications",
+      "your_activity", "archive", "saved", "settings", "lite", "topics", "locations", "tags",
+      "hashtag", "popular", "nametag", "qr", "invites", "help", "blog", "jobs", "ads", "shop",
+      "shopping", "music", "audio", "igtv", "live", "search", "threads", "meta", "family_center",
+      "n", "_n", "_u", "ar", "e", "r", "s", "v"
+    ]
+  },
+  "ui": {
+    "css": {
+      "global": "a[href=\"/explore/\"],a[href=\"/reels/\"],a[href=\"/explore/search/\"]{display:none!important}",
+      "home": "article{visibility:hidden!important}html,body{overflow:hidden!important;overscroll-behavior:none!important}",
+      "reelsViewer": "html,body{overflow:hidden!important;overscroll-behavior:none!important}",
+      "content": "html,body{overscroll-behavior:none!important}",
+      "blocked": "html{visibility:hidden!important}"
+    },
+    "selectors": {
+      "storyTray": ["main [role=\"menu\"]", "[role=\"menu\"]"],
+      "dialog": ["[role=\"dialog\"]"],
+      "leak": ["article", "img", "video"],
+      "addStory": []
+    },
+    "contentLinkPattern": "/(?:p|reel|reels|tv)/([A-Za-z0-9_-]+)",
+    "addStoryTextPattern": "your story|add to (?:your )?story|new story|váš příběh|tvůj příběh|vaše stories|přidat do příběhu|přidat příběh",
+    "lockScrollModes": ["home", "reelsViewer"],
+    "safeTopPx": 56,
+    "trayPadPx": 30,
+    "leakMinWidthRatio": 0.45,
+    "texts": {
+      "cover": "Feed je skrytý. Tady scrollování končí 🙂",
+      "coverSafe": "Feed je skrytý (bezpečný režim – lištu stories se nepodařilo najít)."
+    }
+  }
+}
