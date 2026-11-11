@@ -193,9 +193,21 @@ okraje lišty stories dolů. Když se lišta stories nenajde nebo CSS přestane 
 ### Co je ověřené a co ne
 
 Ověřeno:
-- unit testy `core` (všechny řádky tabulky 3.1, triky s URL, neplatná pravidla),
+- unit testy `core` (všechny řádky tabulky 3.1, triky s URL, neplatná pravidla) – 27 testů,
 - `tools/inject-test.js` – vložený skript v Chromiu na napodobenině stránky (45 kontrol),
-- sestavení a podpis APK v GitHub Actions.
+- sestavení a podpis APK v GitHub Actions, stažení přes veřejný odkaz,
+- `tools/smoke-test.sh` – emulátor Androidu 14 v GitHub Actions, **bez přihlášení**:
+  aplikace nastartuje bez pádu, fungují záložky a Nastavení, načte se stránka Instagramu,
+  skript se vloží do skutečné stránky a `/explore/`, `/reels/` i reel otevřený mimo zprávy
+  skončí na obrazovce „zablokováno“; tlačítko zpět se na zablokovanou stránku nevrátí.
+
+Test na emulátoru je nespolehlivý: launcher emulátoru se občas zasekne a jeho systémové okno
+překryje aplikaci. Stejný kód tak jednou prošel celý a jednou selhal v 9 kontrolách, všechny
+ve chvílích, kdy test klepal přes to okno. Lepší by bylo použít obraz bez Google launcheru.
+
+Test odhalil skutečnou chybu: krok zpět v historii WebView (`goBackOrForward`) ze zablokované
+stránky někdy neudělá nic. Od verze 0.1.2 aplikace po 1,5 s zkontroluje, kde WebView opravdu
+je, a případně načte úvodní stránku.
 
 **Neověřeno – fáze 0 z bodu 5 stále platí a musí ji projít člověk s účtem:**
 1. přihlášení a 2FA ve WebView,
@@ -205,6 +217,11 @@ Ověřeno:
 5. nahrání story,
 6. jestli Instagram nepoužívá další adresy, které teď končí na obrazovce „zablokováno“,
 7. jestli Meta přihlášení z WebView po čase neomezí.
+
+### Vydání nové verze
+
+Tag nejde z cloudové relace pushnout přes git. Vydání dělá workflow *Android build* spuštěný
+ručně (Actions → Android build → Run workflow) s vyplněným `release_tag`, např. `v0.1.3`.
 
 ### Zapnutí vzdálených pravidel
 
